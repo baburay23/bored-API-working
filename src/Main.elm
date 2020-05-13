@@ -9,7 +9,7 @@ import Json.Decode exposing (Decoder, field, string)
 
 
 
--- MAIN
+-- MAINelm
 
 
 main =
@@ -24,16 +24,14 @@ main =
 
 -- MODEL
 
-
-type Model
-    = Failure
-    | Loading
-    | Success String
+type alias Model =
+    { type_ : String
+    }
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Loading, getRandomBoredGif )
+   ( getRandomIdea, Cmd.none)
 
 
 
@@ -41,38 +39,37 @@ init _ =
 
 
 type Msg
-    = MorePlease
-    | GotGif (Result Http.Error String)
+    = NewIdea
+    | GetIdeaType
+    | LoadedIdea --need this for the http request
+    | Failure
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        MorePlease ->
-            ( Loading, getRandomBoredGif )
-
-        GotGif result ->
-            case result of
-                Ok url ->
-                    ( Success url, Cmd.none )
-
-                Err _ ->
-                    ( Failure, Cmd.none )
+        NewIdea ->
+            ( { model | type_ = type_ }, Cmd.none )
+--this changes the idea each time something is inputted. a new record has to be produced each time.type alias recordName =
+        GetIdeaType ->
+            ( model, getRandomIdea model.type_ )
+       
+        LoadedIdea (ok loadedIdea) ->
+          ({ loadedIdea | type_ = model.type_ }, Cmd.none)
+        
+        LoadedIdea (Err _) ->
+            (model, Cmd.none)
+  
 
 
 
 -- SUBSCRIPTIONS
-
-
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.none
 
 
-
 -- VIEW
-
-
 view : Model -> Html Msg
 view model =
     div []
@@ -81,41 +78,36 @@ view model =
         ]
 
 
-viewGif : Model -> Html Msg
-viewGif model =
-    case model of
-        Failure ->
-            div []
-                [ text "I could not load a random cat for some reason. "
-                , button [ onClick MorePlease ] [ text "Try Again!" ]
-                ]
 
-        Loading ->
-            text "Loading..."
-
-        Success url ->
-            div []
-                [ button [ onClick MorePlease, style "display" "block" ] [ text "More Please!" ]
-
-                --, span [ src url ] []
-                , span [] [ text url ]
-
-                --, img [ src url ] []
-                ]
+--you need to listen to the relevant input event and then use a command to make your http call with that value
 
 
+viewIdea : Model -> Html Msg
+viewIdea model =
+    [ div []
+        [ input
+            [ value model.type_
+            , placeholder "hello"
+            ]
+            []
+        , button [ onClick GetIdeaType, style "display" "block" ] [ text "Give me specific Idea!" ]
+        , span [] [ text model.type ]
+        ]
+    ]
 
--- HTTP
 
-
-getRandomBoredGif : Cmd Msg
-getRandomBoredGif =
-    Http.get
-        { url = "https://www.boredapi.com/api/activity/"
-        , expect = Http.expectJson GotGif gifDecoder
+getRandomIdea : Cmd Msg
+getRandomIdea =
+    Http.post
+        { url = "http://www.boredapi.com/api/activity?type=:type"
+        , body = Http.emptyBody
+        , expect = Http.expectJson LoadedIdea () typeDecoder
         }
 
 
-gifDecoder : Decoder String
-gifDecoder =
-    field "activity" string
+typeDecoder : String -> Decoder Model
+typeDecoder type_ Model =
+    map2 (Model type_)
+       -- (field "type" string)
+        (field "activity" string)
+--I want to decode activity with a given type..
