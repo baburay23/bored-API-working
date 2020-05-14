@@ -3,7 +3,6 @@ module Example exposing (..)
 import Expect
 import Json.Decode exposing (Decoder, field, string)
 import Main exposing (activityDecoder)
-import String
 import Test exposing (..)
 
 
@@ -20,13 +19,13 @@ decodesBoredApi =
             let
                 input =
                     """
-                     {    activity: "" 
-                        , accessibility : 0.0 
-                        , type_ : "" 
-                        , participants : 0
-                        , price : 0.0
-                        , link : "" 
-                        , key : "" 
+                     {    "activity": "" 
+                        , "accessibility" : 0.0 
+                        , "type": "" 
+                        , "participants" : 0
+                        , "price" : 0.0
+                        , "link" : "" 
+                        , "key" : "" 
                         }
                     """
 
@@ -36,10 +35,10 @@ decodesBoredApi =
             Expect.equal decodedOutput
                 (Ok
                     { name = ""
-                    , accessibility = 0.0
+                    , accessibility = Just 0.0
                     , type_ = ""
                     , participants = 0
-                    , price = 0.0
+                    , price = Just 0.0
                     , link = ""
                     , key = ""
                     }
