@@ -9,7 +9,7 @@ import Json.Decode exposing (Decoder, field, string)
 
 
 
--- MAIN
+-- MAINelm
 
 
 main =
@@ -95,17 +95,10 @@ viewGif model =
 
         Success url ->
             div []
-                [ button [ onClick MorePlease, style "display" "block" ] [ text "More Please!" ]
-
-                --, span [ src url ] []
+                [ input [ placeholder "hello" ] []
+                , button [ onClick MorePlease, style "display" "block" ] [ text "More Please!" ]
                 , span [] [ text url ]
-
-                --, img [ src url ] []
                 ]
-
-
-
--- HTTP
 
 
 getRandomBoredGif : Cmd Msg
