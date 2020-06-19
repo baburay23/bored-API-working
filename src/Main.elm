@@ -2,14 +2,12 @@ module Main exposing (..)
 
 import Browser
 import Html exposing (..)
-import Html.Attributes exposing (..)
-import Html.Events exposing (..)
-import Http
-import Json.Decode exposing (Decoder, field, string)
-
-
-
--- MAINelm
+import Html.Attributes exposing (id, style)
+--import Html.Styled.Attributes exposing (style)
+import Html.Events exposing (onClick, onInput)
+import Http exposing (Error(..))
+import Json.Decode as Decode exposing (Decoder)
+import Json.Decode.Pipeline as Pipeline
 
 
 main =
@@ -25,15 +23,30 @@ main =
 -- MODEL
 
 
-type Model
-    = Failure
-    | Loading
-    | Success String
+type alias Activity =
+    { name : String
+    , accessibility : Maybe Float
+    , type_ : String
+    , participants : Int
+    , price : Maybe Float
+    , link : String
+    , key : String
+    }
+
+
+type alias Model =
+    { randomActivity : Result Error (Maybe Activity)
+    , chosenActivity : Result Error (Maybe Activity)
+    }
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Loading, getRandomBoredGif )
+    ( Model (Ok Nothing) (Ok Nothing), getRandomIdea )
+
+
+activityTypes =
+    [ "cooking", "charity", "education", "relaxation", "music" ]
 
 
 
@@ -41,23 +54,32 @@ init _ =
 
 
 type Msg
-    = MorePlease
-    | GotGif (Result Http.Error String)
+    = ChosenIdea (Result Error Activity)
+    | RandomIdea (Result Error Activity)
+    | TypeSelected String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        MorePlease ->
-            ( Loading, getRandomBoredGif )
-
-        GotGif result ->
+        ChosenIdea result ->
             case result of
-                Ok url ->
-                    ( Success url, Cmd.none )
+                Ok a ->
+                    ( { model | chosenActivity = Ok (Just a) }, Cmd.none )
 
-                Err _ ->
-                    ( Failure, Cmd.none )
+                Err e ->
+                    ( { model | chosenActivity = Err e }, Cmd.none )
+
+        RandomIdea result ->
+            case result of
+                Ok a ->
+                    ( { model | randomActivity = Ok (Just a) }, Cmd.none )
+
+                Err e ->
+                    ( { model | randomActivity = Err e }, Cmd.none )
+
+        TypeSelected string ->
+            ( model, getChosenIdea string )
 
 
 
@@ -75,40 +97,113 @@ subscriptions model =
 
 view : Model -> Html Msg
 view model =
-    div []
-        [ h2 [] [ text "Ideas for Boredom" ]
-        , viewGif model
+    let
+        optionView t =
+            option [ id t ] [ text t ]
+    in
+    div [style "background-color" "#ccffe6"
+    ,style "height" "200px"
+    ,style "width" "50px%"
+    ,style "display" "block"
+    ,style "padding-left" "15cm"
+    , style "border" "3px solid black"
+    , style "margin" "8px 0"
+  
+    ,style "border-radius" "50px"]
+   
+        [ h2 [] [ text "Random idea for Boredom" ]
+        , case model.randomActivity of
+            Ok a ->
+                ideaView a
+
+            Err e ->
+                errorView e
+        , h2 [] [ text "Choose an idea" ]
+        , select [ onInput TypeSelected ] (List.map optionView activityTypes)
+        , case model.chosenActivity of
+            Ok a ->
+                ideaView a
+
+            Err e ->
+                errorView e
         ]
 
 
-viewGif : Model -> Html Msg
-viewGif model =
-    case model of
-        Failure ->
-            div []
-                [ text "I could not load a random cat for some reason. "
-                , button [ onClick MorePlease ] [ text "Try Again!" ]
+ideaView : Maybe Activity -> Html Msg
+ideaView ma =
+    case ma of
+        Just a ->
+            div
+                []
+                [ div [] [ text a.name ]
                 ]
 
-        Loading ->
-            text "Loading..."
-
-        Success url ->
-            div []
-                [ input [ placeholder "hello" ] []
-                , button [ onClick MorePlease, style "display" "block" ] [ text "More Please!" ]
-                , span [] [ text url ]
-                ]
+        Nothing ->
+            div [] [ text "no activity" ]
 
 
-getRandomBoredGif : Cmd Msg
-getRandomBoredGif =
+errorView : Error -> Html Msg
+errorView e =
+    case e of
+        BadUrl string ->
+            div [] [ text string ]
+
+        Timeout ->
+            div [] [ text "timout" ]
+
+        NetworkError ->
+            div [] [ text "network error" ]
+
+        BadStatus int ->
+            div [] [ text "bad status" ]
+
+        BadBody string ->
+            div [] [ text string ]
+
+
+getRandomIdea : Cmd Msg
+getRandomIdea =
     Http.get
-        { url = "https://www.boredapi.com/api/activity/"
-        , expect = Http.expectJson GotGif gifDecoder
+        { url = "http://www.boredapi.com/api/activity"
+        , expect = Http.expectJson RandomIdea activityDecoder
         }
 
 
-gifDecoder : Decoder String
-gifDecoder =
-    field "activity" string
+getChosenIdea : String -> Cmd Msg
+getChosenIdea type_ =
+    Http.get
+        { url = "http://www.boredapi.com/api/activity?type=" ++ type_
+        , expect = Http.expectJson ChosenIdea activityDecoder
+        }
+
+
+nothingDecoder : String -> Decoder (Maybe a)
+nothingDecoder s =
+    Decode.succeed Nothing
+
+
+maybeFloatDecoder : Float -> Decoder (Maybe Float)
+maybeFloatDecoder p =
+    Decode.succeed (Just p)
+
+
+activityDecoder : Decoder Activity
+activityDecoder =
+    Decode.succeed Activity
+        |> Pipeline.required "activity" Decode.string
+        |> Pipeline.required "accessibility"
+            (Decode.oneOf
+                [ Decode.string |> Decode.andThen nothingDecoder
+                , Decode.float |> Decode.andThen maybeFloatDecoder
+                ]
+            )
+        |> Pipeline.required "type" Decode.string
+        |> Pipeline.required "participants" Decode.int
+        |> Pipeline.required "price"
+            (Decode.oneOf
+                [ Decode.string |> Decode.andThen nothingDecoder
+                , Decode.float |> Decode.andThen maybeFloatDecoder
+                ]
+            )
+        |> Pipeline.required "link" Decode.string
+        |> Pipeline.required "key" Decode.string

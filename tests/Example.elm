@@ -2,36 +2,44 @@ module Example exposing (..)
 
 import Expect
 import Json.Decode exposing (Decoder, field, string)
-import Main exposing (gifDecoder)
-import String
+import Main exposing (activityDecoder)
 import Test exposing (..)
 
 
-
---runGifDecoder : Decoder gifDecoder -> String -> Result String gifDecoder
-
-
-runGifDecoder json =
+runActivityDecoder json =
     Json.Decode.decodeString
-        Main.gifDecoder
+        Main.activityDecoder
         json
 
 
-decodesBoredGif : Test
-decodesBoredGif =
+decodesBoredApi : Test
+decodesBoredApi =
     test "Properly decodes the bored activity string" <|
         \() ->
             let
                 input =
                     """
-                     { "activity":"Learn how to play a new sport" }
+                     {    "activity": "" 
+                        , "accessibility" : 0.0 
+                        , "type": "" 
+                        , "participants" : 0
+                        , "price" : 0.0
+                        , "link" : "" 
+                        , "key" : "" 
+                        }
                     """
 
                 decodedOutput =
-                    runGifDecoder input
+                    runActivityDecoder input
             in
             Expect.equal decodedOutput
                 (Ok
-                    "Learn how to play a new sport"
-                 --activity = "Learn how to play a new sport"
+                    { name = ""
+                    , accessibility = Just 0.0
+                    , type_ = ""
+                    , participants = 0
+                    , price = Just 0.0
+                    , link = ""
+                    , key = ""
+                    }
                 )
